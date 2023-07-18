@@ -1,6 +1,7 @@
 library(shiny)
 library(ggplot2)
 library(tidyverse)
+library(shinyFiles)
 
 ui <- fluidPage(
 
@@ -8,14 +9,8 @@ ui <- fluidPage(
 
     sidebarLayout(
         sidebarPanel(
-            fileInput("ficheroDigital", 
-                      "Introduce aquí el fichero digital"),
-            fileInput("ficheroAnalogico", 
-                      "Introduce aquí el fichero analógico"),
-            fileInput("cabeceraDigital", 
-                      "Introduce aquí la cabecera del fichero digital"),
-            fileInput("cabeceraAnalogico", 
-                      "Introduce aquí la cabecera del fichero analógico"),
+            shinyDirButton('folder', 'Select a folder',
+                           'Please select a folder', FALSE),
             uiOutput("señales")
         ),
 
@@ -36,15 +31,37 @@ ui <- fluidPage(
 
 server <- function(input, output) {
   
+  # volumes <- getVolumes()() # this makes the directory at the base of your computer.
+  volumes <- c(MonitorizacionFetal = "C:/Users/perem/OneDrive/Escritorio/Practicas_2023/MonitorizacionFetal")
+  
+  shinyDirChoose(input, 'folder', roots=volumes)
+  
+  directorio <- eventReactive(input$folder, {
+    dir_path <- parseDirPath(volumes, input$folder)
+    ficheros <- list.files(dir_path)
+    return(list(dir_path = dir_path, ficheros = ficheros))
+  })
+  
+  
+  output$ficheros <- renderPrint({
+    ficheros <- directorio()$ficheros
+    dir_path <- directorio()$dir_path
+    paste(dir_path, ficheros[1], sep = "/")
+  })
+  
   # Cargamos la cabecera del fichero digital
   cabeceraDigital <- reactive({
-    fichero <- input$cabeceraDigital
+    
+    fichero <- directorio()$ficheros[2]
+    dir_path <- directorio()$dir_path
+    datapath <- paste(dir_path, fichero, sep = "/")
+    
     filename <- file(
-      description = fichero$datapath,
+      description = datapath,
       open = "rb")
     
     data <- readBin(filename, integer(),
-                    n = file.info(fichero$datapath)$size,
+                    n = file.info(datapath)$size,
                     size = 1, signed = FALSE)
     return(data)
   })
@@ -52,7 +69,7 @@ server <- function(input, output) {
   # Mostramos la cabecera digital
   output$cabeceraDigi <- renderPrint({
     validate(
-      need(input$cabeceraDigital, 
+      need(input$folder, 
            message = "Esperando cabecera del fichero digital")
     )
     
@@ -65,13 +82,17 @@ server <- function(input, output) {
   
   # Cargamos la cabecera del fichero analógico
   cabeceraAnalogico <- reactive({
-    fichero <- input$cabeceraAnalogico
+    
+    fichero <- directorio()$ficheros[1]
+    dir_path <- directorio()$dir_path
+    datapath <- paste(dir_path, fichero, sep = "/")
+    
     filename <- file(
-      description = fichero$datapath,
+      description = datapath,
       open = "rb")
     
     data <- readBin(filename, raw(),
-                    n = file.info(fichero$datapath)$size, signed = TRUE)
+                    n = file.info(datapath)$size, signed = TRUE)
     
     return(data)
   })
@@ -79,7 +100,7 @@ server <- function(input, output) {
   # Mostramos la cabecera analógica
   output$cabeceraAna <- renderPrint({
     validate(
-      need(input$cabeceraAnalogico, 
+      need(input$folder, 
            message = "Esperando cabecera del fichero analógico")
     )
     
@@ -92,14 +113,17 @@ server <- function(input, output) {
 
   # Cargamos los datos del fichero digital
   datosDig <- reactive({
-    fichero <- input$ficheroDigital
+    
+    fichero <- directorio()$ficheros[4]
+    dir_path <- directorio()$dir_path
+    datapath <- paste(dir_path, fichero, sep = "/")
     
     filename <- file(
-      description = fichero$datapath,
+      description = datapath,
       open = "rb")
     
     data <- readBin(filename, integer(),
-                            n = file.info(fichero$datapath)$size,
+                            n = file.info(datapath)$size,
                             size = 1, signed = FALSE)
     
     HR1 <- data[seq(1, length(data), by = 9)]
@@ -121,7 +145,7 @@ server <- function(input, output) {
   # Almacenamos las señales seleccionadas por el usuario
   output$señales <- renderUI({
     validate(
-      need(input$ficheroDigital, message = "Esperando fichero digital")
+      need(input$folder, message = "Esperando fichero digital")
     )
     
     datosDig <- datosDig()
@@ -144,14 +168,17 @@ server <- function(input, output) {
   
   # Cargamos los datos del fichero analógico
   datosAna <- reactive({
-    fichero <- input$ficheroAnalogico
+    
+    fichero <- directorio()$ficheros[3]
+    dir_path <- directorio()$dir_path
+    datapath <- paste(dir_path, fichero, sep = "/")
     
     filename <- file(
-      description = fichero$datapath,
+      description = datapath,
       open = "rb")
     
     data <- readBin(filename, integer(),
-                    n = file.info(fichero$datapath)$size,
+                    n = file.info(datapath)$size,
                     size = 2, signed = TRUE)
     return(data)
   })
@@ -159,7 +186,7 @@ server <- function(input, output) {
   # Creamos el gráfico del fichero analógico
   output$ana <- renderPlot({
     validate(
-      need(input$ficheroAnalogico, message = "Esperando fichero analógico")
+      need(input$folder, message = "Esperando fichero analógico")
     )
     
     datosAna <- datosAna()
@@ -170,7 +197,7 @@ server <- function(input, output) {
   output$digi <- renderPlot({
     
     validate(
-      need(input$ficheroDigital, message = "Esperando fichero digital")
+      need(input$folder, message = "Esperando fichero digital")
     )
     validate(
       need(input$señal, message = "Esperando señal a representar")
