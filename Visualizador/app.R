@@ -18,7 +18,7 @@ ui <- fluidPage(
           tabsetPanel(
             tabPanel("Datos digitales",
                      h1(textOutput("nombre_señal")),
-                     plotOutput("digi"),
+                     plotOutput("g1"),
                      textOutput("cabeceraDigi")),
             tabPanel("Datos analógicos", 
                      plotOutput("ana"),
@@ -42,12 +42,6 @@ server <- function(input, output) {
     return(list(dir_path = dir_path, ficheros = ficheros))
   })
   
-  
-  output$ficheros <- renderPrint({
-    ficheros <- directorio()$ficheros
-    dir_path <- directorio()$dir_path
-    paste(dir_path, ficheros[1], sep = "/")
-  })
   
   # Cargamos la cabecera del fichero digital
   cabeceraDigital <- reactive({
@@ -166,6 +160,45 @@ server <- function(input, output) {
     return(filtrado)
   })
   
+  # Creamos el gráfico de HR1, MHR y TOCO
+  output$g1 <- renderPlot({
+    validate(
+      need(input$folder, message = "Esperando fichero digital")
+    )
+    
+    df <- as.data.frame(datosDig())
+    df <- df %>% dplyr::select(HR1, MHR, TOCO)
+    df <- df %>% mutate(x = seq(1, dim(df)[1]))
+    ggplot(df, aes(x = x)) + 
+      geom_line(aes(y = MHR), color = "blue") +
+      geom_line(aes(y = HR1), color = "red") +
+      labs(x = "Tiempo", y = "Valor") + 
+      scale_color_manual(values = c("blue", "red"))
+  })
+  
+  # Creamos el gráfico de las señales a representar
+  output$digi <- renderPlot({
+    
+    validate(
+      need(input$folder, message = "Esperando fichero digital")
+    )
+    validate(
+      need(input$señal, message = "Esperando señal a representar")
+    )
+    
+    # Trabajamos los datos para poder representar las variables juntas
+    señal <- data.frame(digitalesFiltrados())
+    x <- seq(1, dim(señal)[1])
+    datos <- cbind(x, señal)
+    datos <- datos %>% 
+      pivot_longer(cols = -x, names_to = "señal", values_to = "valor")
+    
+    # Creamos el gráfico
+    ggplot(data = datos, aes(x = x, y = valor)) + 
+      geom_line(aes(color = señal)) + facet_wrap(~señal) + theme_bw()
+    
+  })
+  
   # Cargamos los datos del fichero analógico
   datosAna <- reactive({
     
@@ -191,29 +224,6 @@ server <- function(input, output) {
     
     datosAna <- datosAna()
     plot(tail(datosAna, 1500))
-  })
-  
-  # Creamos el gráfico de las señales a representar
-  output$digi <- renderPlot({
-    
-    validate(
-      need(input$folder, message = "Esperando fichero digital")
-    )
-    validate(
-      need(input$señal, message = "Esperando señal a representar")
-    )
-    
-    # Trabajamos los datos para poder representar las variables juntas
-    señal <- data.frame(digitalesFiltrados())
-    x <- seq(1, dim(señal)[1])
-    datos <- cbind(x, señal)
-    datos <- datos %>% 
-      pivot_longer(cols = -x, names_to = "señal", values_to = "valor")
-    
-    # Creamos el gráfico
-    ggplot(data = datos, aes(x = x, y = valor)) + 
-      geom_line(aes(color = señal)) + facet_wrap(~señal) + theme_bw()
-    
   })
 
 }
