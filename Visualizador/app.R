@@ -2,6 +2,7 @@ library(shiny)
 library(ggplot2)
 library(tidyverse)
 library(shinyFiles)
+library(zoo)
 
 ui <- fluidPage(
 
@@ -10,8 +11,7 @@ ui <- fluidPage(
     sidebarLayout(
         sidebarPanel(
             shinyDirButton('folder', 'Select a folder',
-                           'Please select a folder', FALSE),
-            uiOutput("señales")
+                           'Please select a folder', FALSE)
         ),
 
         mainPanel(
@@ -168,12 +168,26 @@ server <- function(input, output) {
     
     df <- as.data.frame(datosDig())
     df <- df %>% dplyr::select(HR1, MHR, TOCO)
-    df <- df %>% mutate(x = seq(1, dim(df)[1]))
-    ggplot(df, aes(x = x)) + 
-      geom_line(aes(y = MHR), color = "blue") +
-      geom_line(aes(y = HR1), color = "red") +
-      labs(x = "Tiempo", y = "Valor") + 
-      scale_color_manual(values = c("blue", "red"))
+    seg <- nrow(df)/4000
+    df$x <- seq(0, seg, length.out = nrow(df))
+    
+    # ventana <- 100
+    # df$HR1 <- rollmean(df$HR1, k = ventana, fill = NA)
+    # df$MHR <- rollmean(df$MHR, k = ventana, fill = NA)
+    # df$TOCO <- rollmean(df$TOCO, k = ventana, fill = NA)
+    
+      
+    
+    df <- df %>% pivot_longer(names_to = "Variable",
+                              values_to = "Valor", cols = !x)
+    
+    df <- df %>% filter((Valor > 50 & Variable == "HR1") | 
+                        (Valor > 50 & Variable == "MHR") |
+                        (Variable == "TOCO"))
+    
+    ggplot(df, aes(x = x, y = Valor, color = Variable)) +
+      geom_line() +
+      labs(x = "Tiempo", y = "Valor")
   })
   
   # Creamos el gráfico de las señales a representar
