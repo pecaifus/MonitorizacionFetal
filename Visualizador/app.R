@@ -18,7 +18,8 @@ ui <- fluidPage(
           tabsetPanel(
             tabPanel("Datos digitales",
                      h1(textOutput("nombre_señal")),
-                     plotOutput("g1"),
+                     plotOutput("HR"),
+                     plotOutput("TOCO"),
                      textOutput("cabeceraDigi")),
             tabPanel("Datos analógicos", 
                      plotOutput("ana"),
@@ -160,34 +161,54 @@ server <- function(input, output) {
     return(filtrado)
   })
   
-  # Creamos el gráfico de HR1, MHR y TOCO
-  output$g1 <- renderPlot({
+  # Creamos el gráfico de HR1 y MHR
+  output$HR <- renderPlot({
     validate(
       need(input$folder, message = "Esperando fichero digital")
     )
     
     df <- as.data.frame(datosDig())
-    df <- df %>% dplyr::select(HR1, MHR, TOCO)
-    seg <- nrow(df)/4000
+    df <- df %>% dplyr::select(HR1, MHR)
+    
+    # Revisar si está bien hecho el cambio a tiempo
+    seg <- nrow(df) / 1000
     df$x <- seq(0, seg, length.out = nrow(df))
-    
-    # ventana <- 100
-    # df$HR1 <- rollmean(df$HR1, k = ventana, fill = NA)
-    # df$MHR <- rollmean(df$MHR, k = ventana, fill = NA)
-    # df$TOCO <- rollmean(df$TOCO, k = ventana, fill = NA)
-    
-      
     
     df <- df %>% pivot_longer(names_to = "Variable",
                               values_to = "Valor", cols = !x)
     
-    df <- df %>% filter((Valor > 50 & Variable == "HR1") | 
-                        (Valor > 50 & Variable == "MHR") |
-                        (Variable == "TOCO"))
+    # Revisar este filtrado de datos
+    df <- df %>% filter((Valor > 50 & Variable == "HR1") |
+                        (Valor > 50 & Variable == "MHR"))
     
-    ggplot(df, aes(x = x, y = Valor, color = Variable)) +
+    ventana <- 20
+    df <- df %>%
+          group_by(Variable) %>%
+          summarise(Suavizado = rollmean(Valor, k = ventana, fill = NA),
+                    Tiempo = x)
+    ggplot(df, aes(x = Tiempo, y = Suavizado, color = Variable)) +
       geom_line() +
-      labs(x = "Tiempo", y = "Valor")
+      labs(x = "Tiempo (s)", y = "Valor")
+  })
+
+  # Creamos el gráfico de TOCO
+  output$TOCO <- renderPlot({
+    validate(
+      need(input$folder, message = "Esperando fichero digital")
+    )
+    
+    TC <- as.data.frame(datosDig())
+    TC <- TC %>% dplyr::select(TOCO)
+    seg <- nrow(TC) / 1000 # Revisar si está bien hecho el cambio a tiempo
+    TC$x <- seq(0, seg, length.out = nrow(TC))
+    
+    ventana <- 20
+    TC <- TC %>% 
+      mutate(TOCO = rollmean(TOCO, k = ventana, fill = NA))
+    
+    ggplot(TC, aes(x = x, y = TOCO)) + 
+      geom_line(color = "green") +
+      labs(x = "Tiempo (s)", y = "Valor (mmHg)")
   })
   
   # Creamos el gráfico de las señales a representar
