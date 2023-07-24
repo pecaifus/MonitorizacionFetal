@@ -3,9 +3,10 @@ library(ggplot2)
 library(tidyverse)
 library(shinyFiles)
 library(zoo)
+library(shinythemes)
 
 ui <- fluidPage(
-
+    theme = shinytheme("darkly"),    
     titlePanel("Visualizador de monitorización fetal"),
 
     sidebarLayout(
@@ -16,11 +17,19 @@ ui <- fluidPage(
 
         mainPanel(
           tabsetPanel(
-            tabPanel("Datos digitales",
-                     h1(textOutput("nombre_señal")),
+            tabPanel("HR1, MHR y TOCO",
+                     h1("Gráfico sobre las frecuencias cardiacas
+                        actividad uterina"),
+                     h2("Frecuencia cardicaca fetal y materna"),
                      plotOutput("HR"),
-                     plotOutput("TOCO"),
-                     textOutput("cabeceraDigi")),
+                     h2("Actividad uterina"),
+                     plotOutput("TOCO")),
+            tabPanel("SPO2",
+                     h1("Gráfico sobre el oxígeno en sangre"),
+                     plotOutput("SPO2")),
+            tabPanel("Presion",
+                     h1("Gráfico sobre las diferentes presiones"),
+                     plotOutput("PRESION")),
             tabPanel("Datos analógicos", 
                      plotOutput("ana"),
                      textOutput("cabeceraAna"))
@@ -168,19 +177,19 @@ server <- function(input, output) {
     )
     
     df <- as.data.frame(datosDig())
-    df <- df %>% dplyr::select(HR1, MHR)
+    df <- df %>% dplyr::select(HR1, HR2, MHR)
     
     # Revisar si está bien hecho el cambio a tiempo
-    seg <- nrow(df) / 1000
+    seg <- nrow(df) / 4000
     df$x <- seq(0, seg, length.out = nrow(df))
     
     df <- df %>% pivot_longer(names_to = "Variable",
                               values_to = "Valor", cols = !x)
     
     # Revisar este filtrado de datos
-    df <- df %>% filter((Valor > 50 & Variable == "HR1") |
-                        (Valor > 50 & Variable == "MHR"))
-    
+    # df <- df %>% filter((Valor > 50 & Variable == "HR1") |
+    #                     (Valor > 50 & Variable == "MHR"))
+
     ventana <- 20
     df <- df %>%
           group_by(Variable) %>%
@@ -199,7 +208,7 @@ server <- function(input, output) {
     
     TC <- as.data.frame(datosDig())
     TC <- TC %>% dplyr::select(TOCO)
-    seg <- nrow(TC) / 1000 # Revisar si está bien hecho el cambio a tiempo
+    seg <- nrow(TC) / 4000 # Revisar si está bien hecho el cambio a tiempo
     TC$x <- seq(0, seg, length.out = nrow(TC))
     
     ventana <- 20
@@ -209,6 +218,45 @@ server <- function(input, output) {
     ggplot(TC, aes(x = x, y = TOCO)) + 
       geom_line(color = "green") +
       labs(x = "Tiempo (s)", y = "Valor (mmHg)")
+  })
+  
+  # Creamos el gráfico del SPO2
+  output$SPO2 <- renderPlot({
+    validate(
+      need(input$folder, message = "Esperando fichero digital")
+    )
+    
+    df <- as.data.frame(datosDig())
+    df <- df %>% dplyr::select(SPO2)
+    
+    seg <- nrow(df) / 1000
+    df$x <- seq(0, seg, length.out = nrow(df))
+    
+    df <- df %>% filter(SPO2 > 0)
+    
+    
+    ggplot(df, aes(x = x, y = SPO2)) +
+      geom_line(color = "blue") + labs(x = "Tiempo (s)", y = "Porcentaje %")
+  })
+  
+  # Creamos el gráfico de las presiones
+  output$PRESION <- renderPlot({
+    validate(
+      need(input$folder, message = "Esperando fichero digital")
+    )
+    
+    df <- as.data.frame(datosDig())
+    df <- df %>% dplyr::select(Pmedia, Pdiastolica, Psistolica)
+    
+    seg <- nrow(df) / 1000
+    df$x <- seq(0, seg, length.out = nrow(df))
+    
+    df_l <- df %>% 
+      pivot_longer(names_to = "Variable", values_to = "Valor", cols = !x)
+    
+    ggplot(data = df_l ,aes(x = x, y = Valor, color = Variable)) +
+      geom_line() +
+      labs(x = "Tiempo (s)", y = "Valor mmHg")
   })
   
   # Creamos el gráfico de las señales a representar
@@ -258,7 +306,7 @@ server <- function(input, output) {
     )
     
     datosAna <- datosAna()
-    plot(tail(datosAna, 1500))
+    plot(tail(datosAna, 500))
   })
 
 }
