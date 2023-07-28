@@ -44,7 +44,7 @@ server <- function(input, output) {
   ## CARGA DE DATOS ##
   
   # volumes <- getVolumes()()
-  volumes <- c(MonitorizacionFetal = "C:/Users/perem/OneDrive/Escritorio/Practicas_2023/MonitorizacionFetal")
+  volumes <- c(MonitorizacionFetal = "../")
   
   shinyDirChoose(input, 'folder', roots=volumes)
   
@@ -139,7 +139,7 @@ server <- function(input, output) {
     df <- df %>% dplyr::select(HR1, HR2, MHR)
     
     # Revisar si está bien hecho el cambio a tiempo
-    seg <- nrow(df) / 4000
+    seg <- nrow(df) / 4
     df$x <- seq(0, seg, length.out = nrow(df))
     
     df <- df %>% pivot_longer(names_to = "Variable",
