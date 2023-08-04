@@ -149,9 +149,11 @@ server <- function(input, output, session) {
 
     
     g1 <- plot_ly(data = df, type = "scatter", mode = "lines") %>%
-      add_trace(x = ~ x, y = ~ Valor, color = ~ Variable) %>%
-      layout(yaxis = list(title = "Latidos por minuto"),
-             xaxis = list(title = "Tiempo (s)")) %>%
+      add_lines(x = ~ x, y = ~ Valor, color = ~ Variable, colors = "blacks") %>% 
+      layout(yaxis = list(title = "Latidos por minuto",
+                          gridcolor = "#fd0000"),
+             xaxis = list(title = "Tiempo (s)",
+                          gridcolor = "#fd0000")) %>%
       config(scrollZoom = TRUE)
 
     
@@ -166,16 +168,19 @@ server <- function(input, output, session) {
       TC[out, 1] <- NA 
     }
     
-    g2 <- plot_ly(data = TC, type = "scatter",
+    g2 <- plot_ly(data = TC, type = "scatter", 
                   mode = "lines") %>% 
-      add_trace(x = ~ x, y = ~ TOCO,
-                line = list(color = "green"), name = "TOCO") %>% 
+      add_lines(x = ~ x, y = ~ TOCO,
+                line = list(color = "black"), name = "TOCO") %>% 
       config(scrollZoom = TRUE) %>% 
-      layout(yaxis = list(title = "Valor (mmHg)"),
-             xaxis = list(title = "Tiempo (s)"))
+      layout(yaxis = list(title = "Valor (mmHg)",
+                          gridcolor = "#fd0000"),
+             xaxis = list(title = "Tiempo (s)",
+                          gridcolor = "#fd0000"))
     
-    g <- subplot(g1, g2, nrows = 2, titleY = TRUE) %>%
-      layout(title = "Actividad uterina")
+    g <- subplot(g1, g2, nrows = 2, titleY = TRUE, heights = c(0.6, 0.4)) %>%
+      layout(title = "Actividad uterina",
+             plot_bgcolor = "#ffd8d8", autosize = TRUE)
     
     g
   })
