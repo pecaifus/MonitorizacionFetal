@@ -13,7 +13,9 @@ ui <- fluidPage(
     sidebarLayout(
         sidebarPanel(
             shinyDirButton('folder', 'Select a folder',
-                           'Please select a folder', FALSE)
+                           'Please select a folder', FALSE),
+            hr(),
+            checkboxInput("Eliminar", "Eliminar Outliers")
         ),
 
         mainPanel(
@@ -21,10 +23,7 @@ ui <- fluidPage(
             tabPanel("HR1, MHR y TOCO",
                      h1("Gráfico sobre las frecuencias cardiacas
                         actividad uterina"),
-                     h2("Frecuencia cardicaca fetal y materna"),
-                     plotlyOutput("HR"),
-                     h2("Actividad uterina"),
-                     plotlyOutput("TOCO")),
+                     plotlyOutput("HR")),
             tabPanel("SPO2",
                      h1("Gráfico sobre el oxígeno en sangre"),
                      plotlyOutput("SPO2")),
@@ -38,8 +37,22 @@ ui <- fluidPage(
     )
 )
 
-
-server <- function(input, output) {
+server <- function(input, output, session) {
+  
+  MetodoDesviaciones <- function(vector){
+    media <- mean(vector)
+    des <- sd(vector)
+    lim_inf <- media - 3 * des
+    lim_sup <- media + 3 * des
+    
+    return(vector < lim_inf | vector > lim_sup)
+  }
+  
+  MetodoDerivadas <- function(vector, umbral){
+    res <- diff(vector)
+    out <- c(0, res)
+    return(abs(out) > umbral)
+  }
   
   ## CARGA DE DATOS ##
   
@@ -86,14 +99,6 @@ server <- function(input, output) {
     return(data)
   })
   
-  # Filtramos los datos digitales por las señales seleccionadas
-  digitalesFiltrados <- reactive({
-    datosDig <- datosDig()
-    seleccionada <- input$señal
-    filtrado <- subset(datosDig, select = seleccionada)
-    return(filtrado)
-  })
-  
   # Cargamos los datos del fichero analógico
   datosAna <- reactive({
     
@@ -113,22 +118,6 @@ server <- function(input, output) {
   
   ## CREACIÓN DE GRÁFICOS ##
   
-  # Almacenamos las señales seleccionadas por el usuario
-  output$señales <- renderUI({
-    validate(
-      need(input$folder, message = "Esperando fichero digital")
-    )
-    
-    datosDig <- datosDig()
-    selectizeInput("señal", label = "Señales dataset",
-                choices = colnames(datosDig), multiple = TRUE)
-  })
-  
-  # Mostramos los normbres de las señales seleccionadas
-  output$nombre_señal <- renderText({
-    return(input$señal)
-  })
-  
   # Creamos el gráfico de HR1 y MHR
   output$HR <- renderPlotly({
     validate(
@@ -138,55 +127,46 @@ server <- function(input, output) {
     df <- as.data.frame(datosDig())
     df <- df %>% dplyr::select(HR1, HR2, MHR)
     
-    # Revisar si está bien hecho el cambio a tiempo
+    cabecera <- cabeceraDigital()
+    inicio <- hms(paste(cabecera[4], cabecera[5], cabecera[6], collapse = ":"))
+
+    
     seg <- nrow(df) / 4
     df$x <- seq(0, seg, length.out = nrow(df))
     
+    if (input$Eliminar){
+      out1 <- MetodoDesviaciones(df$HR1)
+      out2 <- MetodoDerivadas(df$HR2, 30)
+      out3 <- MetodoDerivadas(df$MHR, 30)
+      
+      df[out1, 1] <- NA
+      df[out2, 2] <- NA
+      df[out3, 3] <- NA 
+    }
+
     df <- df %>% pivot_longer(names_to = "Variable",
                               values_to = "Valor", cols = !x)
-    
-    # Revisar este filtrado de datos
-    # df <- df %>% filter((Valor > 50 & Variable == "HR1") |
-    #                     (Valor > 50 & Variable == "MHR"))
 
-    # ventana <- 20
-    # df <- df %>%
-    #       group_by(Variable) %>%
-    #       summarise(Suavizado = rollmean(Valor, k = ventana, fill = NA),
-    #                 Tiempo = x)
-    # 
-    # ggplot(df, aes(x = Tiempo, y = Suavizado, color = Variable)) +
-    #   geom_line() +
-    #   labs(x = "Tiempo (s)", y = "Valor")
     
     g1 <- plot_ly(data = df, type = "scatter", mode = "lines") %>%
       add_trace(x = ~ x, y = ~ Valor, color = ~ Variable) %>%
-      layout(yaxis = list(title = "Latidos por minuto")) %>%
+      layout(yaxis = list(title = "Latidos por minuto"),
+             xaxis = list(title = "Tiempo (s)")) %>%
       config(scrollZoom = TRUE)
 
-    g1
-  })
-
-  # Creamos el gráfico de TOCO
-  output$TOCO <- renderPlotly({
-    validate(
-      need(input$folder, message = "Esperando fichero digital")
-    )
     
     TC <- as.data.frame(datosDig())
     TC <- TC %>% dplyr::select(TOCO)
-    seg <- nrow(TC) / 4000 # Revisar si está bien hecho el cambio a tiempo
+    seg <- nrow(TC) / 4
     TC$x <- seq(0, seg, length.out = nrow(TC))
     
-    ventana <- 20
-    TC <- TC %>% 
-      mutate(TOCO = rollmean(TOCO, k = ventana, fill = NA))
+    if (input$Eliminar){
+      umbral <- 20
+      out <- MetodoDerivadas(TC$TOCO, umbral)
+      TC[out, 1] <- NA 
+    }
     
-    # ggplot(TC, aes(x = x, y = TOCO)) + 
-    #   geom_line(color = "green") +
-    #   labs(x = "Tiempo (s)", y = "Valor (mmHg)")
-    
-    g1 <- plot_ly(data = TC, type = "scatter",
+    g2 <- plot_ly(data = TC, type = "scatter",
                   mode = "lines") %>% 
       add_trace(x = ~ x, y = ~ TOCO,
                 line = list(color = "green"), name = "TOCO") %>% 
@@ -194,7 +174,10 @@ server <- function(input, output) {
       layout(yaxis = list(title = "Valor (mmHg)"),
              xaxis = list(title = "Tiempo (s)"))
     
-    g1
+    g <- subplot(g1, g2, nrows = 2, titleY = TRUE) %>%
+      layout(title = "Actividad uterina")
+    
+    g
   })
   
   # Creamos el gráfico del SPO2
@@ -206,7 +189,7 @@ server <- function(input, output) {
     df <- as.data.frame(datosDig())
     df <- df %>% dplyr::select(SPO2)
     
-    seg <- nrow(df) / 4000
+    seg <- nrow(df) / 4
     df$x <- seq(0, seg, length.out = nrow(df))
     
     df <- df %>% filter(SPO2 > 0)
