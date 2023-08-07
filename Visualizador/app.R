@@ -7,7 +7,7 @@ library(shinythemes)
 library(plotly)
 
 ui <- fluidPage(
-    theme = shinytheme("darkly"),    
+    theme = shinytheme("lumen"),    
     titlePanel("Visualizador de monitorización fetal"),
 
     sidebarLayout(
@@ -143,17 +143,20 @@ server <- function(input, output, session) {
       df[out2, 2] <- NA
       df[out3, 3] <- NA 
     }
-
-    df <- df %>% pivot_longer(names_to = "Variable",
-                              values_to = "Valor", cols = !x)
-
     
-    g1 <- plot_ly(data = df, type = "scatter", mode = "lines") %>%
-      add_lines(x = ~ x, y = ~ Valor, color = ~ Variable, colors = "blacks") %>% 
-      layout(yaxis = list(title = "Latidos por minuto",
-                          gridcolor = "#fd0000"),
-             xaxis = list(title = "Tiempo (s)",
-                          gridcolor = "#fd0000")) %>%
+    g1 <- plot_ly(data = df, x = ~ x, y = ~ HR1,
+                  type = "scatter", mode = "lines", name = "HR1", 
+                  line = list(color = 'red', width = 1.5)) %>%
+      
+      add_trace(y = ~ HR2, name = "HR2", type = "scatter", mode = "lines",
+                line = list(color = 'brown', width = 1.5)) %>%
+      
+      add_trace(y = ~ MHR, name = "MHR", type = "scatter", mode = "lines",
+                line = list(color = 'blue', width = 1.5)) %>%
+      
+      layout(yaxis = list(title = "Latidos por minuto", gridcolor = "#ff8a8a"),
+             xaxis = list(title = "Tiempo (s)", gridcolor = "#ff8a8a")) %>%
+      
       config(scrollZoom = TRUE)
 
     
@@ -174,13 +177,13 @@ server <- function(input, output, session) {
                 line = list(color = "black"), name = "TOCO") %>% 
       config(scrollZoom = TRUE) %>% 
       layout(yaxis = list(title = "Valor (mmHg)",
-                          gridcolor = "#fd0000"),
+                          gridcolor = "#ff8a8a"),
              xaxis = list(title = "Tiempo (s)",
-                          gridcolor = "#fd0000"))
+                          gridcolor = "#ff8a8a"))
     
     g <- subplot(g1, g2, nrows = 2, titleY = TRUE, heights = c(0.6, 0.4)) %>%
       layout(title = "Actividad uterina",
-             plot_bgcolor = "#ffd8d8", autosize = TRUE)
+             plot_bgcolor = "#ffeeee", autosize = TRUE)
     
     g
   })
@@ -238,39 +241,6 @@ server <- function(input, output, session) {
              xaxis = list(title = "Tiempo (s)"))
     
     g1
-  })
-  
-  # Creamos el gráfico de las señales a representar
-  output$digi <- renderPlot({
-    
-    validate(
-      need(input$folder, message = "Esperando fichero digital")
-    )
-    validate(
-      need(input$señal, message = "Esperando señal a representar")
-    )
-    
-    # Trabajamos los datos para poder representar las variables juntas
-    señal <- data.frame(digitalesFiltrados())
-    x <- seq(1, dim(señal)[1])
-    datos <- cbind(x, señal)
-    datos <- datos %>% 
-      pivot_longer(cols = -x, names_to = "señal", values_to = "valor")
-    
-    # Creamos el gráfico
-    ggplot(data = datos, aes(x = x, y = valor)) + 
-      geom_line(aes(color = señal)) + facet_wrap(~señal) + theme_bw()
-    
-  })
-  
-  # Creamos el gráfico del fichero analógico
-  output$ana <- renderPlot({
-    validate(
-      need(input$folder, message = "Esperando fichero analógico")
-    )
-    
-    datosAna <- datosAna()
-    plot(tail(datosAna, 500))
   })
 
   ###############  
