@@ -19,20 +19,8 @@ ui <- fluidPage(
         ),
 
         mainPanel(
-          tabsetPanel(
-            tabPanel("HR1, MHR y TOCO",
-                     h1("Gráfico sobre las frecuencias cardiacas
-                        actividad uterina"),
-                     plotlyOutput("HR")),
-            tabPanel("SPO2",
-                     h1("Gráfico sobre el oxígeno en sangre"),
-                     plotlyOutput("SPO2")),
-            tabPanel("Presion",
-                     h1("Gráfico sobre las diferentes presiones"),
-                     plotlyOutput("PRESION")),
-            tabPanel("Datos analógicos", 
-                     plotOutput("ana"))
-          )
+          h1("Gráfico sobre las frecuencias cardiacas y actividad uterina"),
+          plotlyOutput("HR")
         )
     )
 )
@@ -130,7 +118,6 @@ server <- function(input, output, session) {
     cabecera <- cabeceraDigital()
     inicio <- hms(paste(cabecera[4], cabecera[5], cabecera[6], collapse = ":"))
 
-    
     seg <- nrow(df) / 4
     df$x <- seq(0, seg, length.out = nrow(df))
     
@@ -146,18 +133,19 @@ server <- function(input, output, session) {
     
     g1 <- plot_ly(data = df, x = ~ x, y = ~ HR1,
                   type = "scatter", mode = "lines", name = "HR1", 
-                  line = list(color = 'red', width = 1.5)) %>%
+                  line = list(color = 'rgb(190, 23, 4)', width = 1.5)) %>%
       
       add_trace(y = ~ HR2, name = "HR2", type = "scatter", mode = "lines",
-                line = list(color = 'brown', width = 1.5)) %>%
+                line = list(color = 'rgb(250, 99, 81)', width = 1.5)) %>%
       
       add_trace(y = ~ MHR, name = "MHR", type = "scatter", mode = "lines",
-                line = list(color = 'blue', width = 1.5)) %>%
+                line = list(color = 'rgb(105, 54, 45)', width = 1.5)) %>%
       
       layout(yaxis = list(title = "Latidos por minuto", gridcolor = "#ff8a8a"),
              xaxis = list(title = "Tiempo (s)", gridcolor = "#ff8a8a")) %>%
       
       config(scrollZoom = TRUE)
+      
 
     
     TC <- as.data.frame(datosDig())
@@ -174,15 +162,18 @@ server <- function(input, output, session) {
     g2 <- plot_ly(data = TC, type = "scatter", 
                   mode = "lines") %>% 
       add_lines(x = ~ x, y = ~ TOCO,
-                line = list(color = "black"), name = "TOCO") %>% 
+                line = list(color = "rgb(75, 0, 0)"), name = "TOCO") %>% 
       config(scrollZoom = TRUE) %>% 
       layout(yaxis = list(title = "Valor (mmHg)",
                           gridcolor = "#ff8a8a"),
              xaxis = list(title = "Tiempo (s)",
                           gridcolor = "#ff8a8a"))
     
+    l <- list(font = list(family = "sans-serif", size = 12, color = "#000"), 
+              bgcolor = "#E2E2E2", bordercolor = "#FFFFFF", borderwidth = 2)
+    
     g <- subplot(g1, g2, nrows = 2, titleY = TRUE, heights = c(0.6, 0.4)) %>%
-      layout(title = "Actividad uterina",
+      layout(title = "Actividad uterina", legend = l,
              plot_bgcolor = "#ffeeee", autosize = TRUE)
     
     g
@@ -202,17 +193,33 @@ server <- function(input, output, session) {
     
     df <- df %>% filter(SPO2 > 0)
     
-    
-    # ggplot(df, aes(x = x, y = SPO2)) +
-    #   geom_line(color = "blue") + labs(x = "Tiempo (s)", y = "Porcentaje %")
-    
-    g1 <- plot_ly(data = df, type = "scatter", mode = "lines") %>% 
-      add_trace(x = ~ x, y = ~ SPO2, color = "green") %>% 
+    g1 <- plot_ly(data = df, type = "scatter", mode = "lines") %>%
+      add_trace(x = ~ x, y = ~ SPO2, color = "green") %>%
       layout(yaxis = list(title = "Porcentaje %"),
-             xaxis = list(title = "Tiempo (s)")) %>% 
+             xaxis = list(title = "Tiempo (s)")) %>%
       config(scrollZoom = TRUE)
     
     g1
+  })
+  
+  cambioSPO2 <- reactive({
+    validate(
+      need(input$folder, message = "Esperando fichero digital")
+    )
+    
+    SP <- as.data.frame(datosDig())
+    SP <- SP %>% dplyr::select(SPO2)
+    SP <- as.vector(SP[,1])
+    
+    posiciones_cambio <- c()
+    
+    for (i in 2:length(SP)) {
+      if (SP[i,] != SP[i - 1,]) {
+        posiciones_cambio <- c(posiciones_cambio, i)
+      }
+    }
+    
+    return(posiciones_cambio)
   })
   
   # Creamos el gráfico de las presiones
