@@ -147,7 +147,6 @@ server <- function(input, output, session) {
       config(scrollZoom = TRUE)
       
 
-    
     TC <- as.data.frame(datosDig())
     TC <- TC %>% dplyr::select(TOCO)
     seg <- nrow(TC) / 4
