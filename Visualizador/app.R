@@ -7,22 +7,27 @@ library(shinythemes)
 library(plotly)
 
 ui <- fluidPage(
-    theme = shinytheme("lumen"),    
-    titlePanel("Visualizador de monitorización fetal"),
-
-    sidebarLayout(
-        sidebarPanel(
-            shinyDirButton('folder', 'Select a folder',
-                           'Please select a folder', FALSE),
-            hr(),
-            checkboxInput("Eliminar", "Eliminar Outliers")
-        ),
-
-        mainPanel(
-          h1("Gráfico sobre las frecuencias cardiacas y actividad uterina"),
-          plotlyOutput("HR")
-        )
-    )
+    theme = shinytheme("lumen"),
+    
+    fluidRow(
+      style = "background-color:#f89797;",
+      h1("Visualizador de monitorización fetal"),
+      hr(),
+      h3("Zona de menús"),
+      column(2, shinyDirButton('folder', 'Select a folder', 'Please select a folder', FALSE)), 
+      column(2, checkboxInput("Eliminar", "Eliminar Outliers")),
+      column(4, uiOutput("slide")),
+      column(4, 
+             actionButton("retroceder", "30 segundos", 
+                          icon = icon("chevron-left")),
+             actionButton("avanzar", "30 segundos",
+                          icon = icon("chevron-right")))
+      ),
+    
+    fluidRow(
+      h3("Gráfico sobre las frecuencias cardiacas y actividad uterina"),
+      plotlyOutput("HR"))
+        
 )
 
 server <- function(input, output, session) {
@@ -105,8 +110,19 @@ server <- function(input, output, session) {
   })
   
   ## CREACIÓN DE GRÁFICOS ##
+  output$slide <- renderUI({
+    df <- as.data.frame(datosDig())
+    df <- df %>% dplyr::select(HR1, HR2, MHR)
+    
+    cabecera <- cabeceraDigital()
+    inicio <- hms(paste(cabecera[4], cabecera[5], cabecera[6], collapse = ":"))
+    
+    seg <- nrow(df) / 4
+    sliderInput("momento", "¿En qué momento temporal te quieres situar?",
+                0, seg, 0)
+  })
   
-  # Creamos el gráfico de HR1 y MHR
+  # Creamos el gráfico de HR1, HR2 y MHR
   output$HR <- renderPlotly({
     validate(
       need(input$folder, message = "Esperando fichero digital")
@@ -131,15 +147,21 @@ server <- function(input, output, session) {
       df[out3, 3] <- NA 
     }
     
+    observeEvent(input$momento, {
+      lim_inf <- input$momento - 50
+      lim_sup <- input$momento + 50
+      df <- df %>% filter(x > lim_inf & x < lim_sup)
+    })
+    
     g1 <- plot_ly(data = df, x = ~ x, y = ~ HR1,
                   type = "scatter", mode = "lines", name = "HR1", 
-                  line = list(color = 'rgb(190, 23, 4)', width = 1.5)) %>%
+                  line = list(color = 'red', width = 1.5)) %>%
       
       add_trace(y = ~ HR2, name = "HR2", type = "scatter", mode = "lines",
-                line = list(color = 'rgb(250, 99, 81)', width = 1.5)) %>%
+                line = list(color = 'green', width = 1.5)) %>%
       
       add_trace(y = ~ MHR, name = "MHR", type = "scatter", mode = "lines",
-                line = list(color = 'rgb(105, 54, 45)', width = 1.5)) %>%
+                line = list(color = 'blue', width = 1.5)) %>%
       
       layout(yaxis = list(title = "Latidos por minuto", gridcolor = "#ff8a8a"),
              xaxis = list(title = "Tiempo (s)", gridcolor = "#ff8a8a")) %>%
