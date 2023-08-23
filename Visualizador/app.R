@@ -16,7 +16,8 @@ ui <- fluidPage(
       h3("Zona de menús"),
       column(2, shinyDirButton('folder', 'Select a folder', 'Please select a folder', FALSE)), 
       column(2, checkboxInput("Eliminar", "Eliminar Outliers")),
-      column(4, uiOutput("slide")),
+      column(4, uiOutput("slide"), 
+                actionButton("general", "Volver a la vista general")),
       column(4, 
              actionButton("retroceder", "30 segundos", 
                           icon = icon("chevron-left")),
@@ -148,25 +149,25 @@ server <- function(input, output, session) {
     }
     
     observeEvent(input$momento, {
-      lim_inf <- input$momento - 50
-      lim_sup <- input$momento + 50
+      lim_inf <- input$momento - 30
+      lim_sup <- input$momento + 30
       df <- df %>% filter(x > lim_inf & x < lim_sup)
     })
     
-    g1 <- plot_ly(data = df, x = ~ x, y = ~ HR1,
-                  type = "scatter", mode = "lines", name = "HR1", 
-                  line = list(color = 'red', width = 1.5)) %>%
-      
-      add_trace(y = ~ HR2, name = "HR2", type = "scatter", mode = "lines",
-                line = list(color = 'green', width = 1.5)) %>%
-      
-      add_trace(y = ~ MHR, name = "MHR", type = "scatter", mode = "lines",
-                line = list(color = 'blue', width = 1.5)) %>%
-      
-      layout(yaxis = list(title = "Latidos por minuto", gridcolor = "#ff8a8a"),
-             xaxis = list(title = "Tiempo (s)", gridcolor = "#ff8a8a")) %>%
-      
-      config(scrollZoom = TRUE)
+    # g1 <- plot_ly(data = df, x = ~ x, y = ~ HR1,
+    #               type = "scatter", mode = "lines", name = "HR1", 
+    #               line = list(color = 'red', width = 1.5)) %>%
+    #   
+    #   add_trace(y = ~ HR2, name = "HR2", type = "scatter", mode = "lines",
+    #             line = list(color = 'green', width = 1.5)) %>%
+    #   
+    #   add_trace(y = ~ MHR, name = "MHR", type = "scatter", mode = "lines",
+    #             line = list(color = 'blue', width = 1.5)) %>%
+    #   
+    #   layout(yaxis = list(title = "Latidos por minuto", gridcolor = "#ff8a8a"),
+    #          xaxis = list(title = "Tiempo (s)", gridcolor = "#ff8a8a")) %>%
+    #   
+    #   config(scrollZoom = TRUE)
       
 
     TC <- as.data.frame(datosDig())
@@ -180,22 +181,21 @@ server <- function(input, output, session) {
       TC[out, 1] <- NA 
     }
     
-    g2 <- plot_ly(data = TC, type = "scatter", 
-                  mode = "lines") %>% 
-      add_lines(x = ~ x, y = ~ TOCO,
-                line = list(color = "rgb(75, 0, 0)"), name = "TOCO") %>% 
-      config(scrollZoom = TRUE) %>% 
-      layout(yaxis = list(title = "Valor (mmHg)",
-                          gridcolor = "#ff8a8a"),
-             xaxis = list(title = "Tiempo (s)",
-                          gridcolor = "#ff8a8a"))
+    # g2 <- plot_ly(data = TC, type = "scatter", 
+    #               mode = "lines") %>% 
+    #   add_lines(x = ~ x, y = ~ TOCO,
+    #             line = list(color = "rgb(75, 0, 0)"), name = "TOCO") %>% 
+    #   config(scrollZoom = TRUE) %>% 
+    #   layout(yaxis = list(title = "Valor (mmHg)",
+    #                       gridcolor = "#ff8a8a"),
+    #          xaxis = list(title = "Tiempo (s)",
+    #                       gridcolor = "#ff8a8a"))
     
-    l <- list(font = list(family = "sans-serif", size = 12, color = "#000"), 
-              bgcolor = "#E2E2E2", bordercolor = "#FFFFFF", borderwidth = 2)
+    # l <- list(font = list(family = "sans-serif", size = 12, color = "#000"), 
+    #           bgcolor = "#E2E2E2", bordercolor = "#FFFFFF", borderwidth = 2)
     
-    g <- subplot(g1, g2, nrows = 2, titleY = TRUE, heights = c(0.6, 0.4)) %>%
-      layout(title = "Actividad uterina", legend = l,
-             plot_bgcolor = "#ffeeee", autosize = TRUE)
+    g <- subplot(G1(df), G2(TC), nrows = 2, titleY = TRUE, heights = c(0.6, 0.4)) %>%
+      layout(title = "Actividad uterina", autosize = TRUE)
     
     g
   })
@@ -337,6 +337,30 @@ server <- function(input, output, session) {
     print(paste("La resolucion es: ", resolucion))
   })
 
+}
+
+G1 <- function(df){
+  df <- pivot_longer(df, names_to = "Variable", values_to = "Valor", cols = !x)
+  g <- ggplot(df, aes(x = x, y = Valor, color = Variable)) + geom_line() +
+    xlab("Tiempo (s)") + ylab("Latidos por minuto") +
+    theme(panel.grid.minor = element_line(color = "#005A47", size = 0.1, linetype = 1), 
+          panel.grid = element_line(color = "#005A47", size = 0.2, linetype = 1),
+          panel.background = element_rect(fill = 'white', color = '#005A47'))
+  
+  g1 <- ggplotly(g)
+  
+  return(g1)
+}
+
+G2 <- function(TC){
+  g <- ggplot(TC, aes(x, TOCO)) + geom_line(color = "brown") + xlab("Tiempo (s)") + 
+    ylab("Valor (mmHg)") +
+    theme(panel.grid.minor = element_line(color = "#005A47", size = 0.1, linetype = 1), 
+          panel.grid = element_line(color = "#005A47", size = 0.2, linetype = 1),
+          panel.background = element_rect(fill = 'white', color = '#005A47'))
+  
+  g1 <- ggplotly(g)
+  return(g1)
 }
 
 # Run the application 
