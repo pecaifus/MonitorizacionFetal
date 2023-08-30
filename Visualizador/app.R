@@ -1,7 +1,7 @@
 library(shiny)
-library(ggplot2)
 library(tidyverse)
 library(shinyFiles)
+library(scales)
 library(zoo)
 library(shinythemes)
 library(plotly)
@@ -17,7 +17,7 @@ ui <- fluidPage(
       column(2, shinyDirButton('folder', 'Select a folder', 'Please select a folder', FALSE)), 
       column(2, checkboxInput("Eliminar", "Eliminar Outliers")),
       column(4, uiOutput("slide"), 
-                actionButton("general", "Volver a la vista general")),
+                h6("Para volver a la vista general arrastra la barra hasta 0")),
       column(4, 
              actionButton("retroceder", "30 segundos", 
                           icon = icon("chevron-left")),
@@ -93,6 +93,8 @@ server <- function(input, output, session) {
     return(data)
   })
   
+  
+  
   # Cargamos los datos del fichero analógico
   datosAna <- reactive({
     
@@ -112,13 +114,13 @@ server <- function(input, output, session) {
   
   ## CREACIÓN DE GRÁFICOS ##
   output$slide <- renderUI({
-    df <- as.data.frame(datosDig())
-    df <- df %>% dplyr::select(HR1, HR2, MHR)
+    hr <- as.data.frame(datosDig())
+    hr <- hr %>% dplyr::select(HR1, HR2, MHR)
     
     cabecera <- cabeceraDigital()
     inicio <- hms(paste(cabecera[4], cabecera[5], cabecera[6], collapse = ":"))
     
-    seg <- nrow(df) / 4
+    seg <- nrow(hr) / 4
     sliderInput("momento", "¿En qué momento temporal te quieres situar?",
                 0, seg, 0)
   })
@@ -129,46 +131,25 @@ server <- function(input, output, session) {
       need(input$folder, message = "Esperando fichero digital")
     )
     
-    df <- as.data.frame(datosDig())
-    df <- df %>% dplyr::select(HR1, HR2, MHR)
+    hr <- as.data.frame(datosDig())
+    hr <- hr %>% dplyr::select(HR1, HR2, MHR)
     
     cabecera <- cabeceraDigital()
     inicio <- hms(paste(cabecera[4], cabecera[5], cabecera[6], collapse = ":"))
 
-    seg <- nrow(df) / 4
-    df$x <- seq(0, seg, length.out = nrow(df))
+    seg <- nrow(hr) / 4
+    hr$x <- seq(0, seg, length.out = nrow(hr))
     
     if (input$Eliminar){
-      out1 <- MetodoDesviaciones(df$HR1)
-      out2 <- MetodoDerivadas(df$HR2, 30)
-      out3 <- MetodoDerivadas(df$MHR, 30)
+      out1 <- MetodoDesviaciones(hr$HR1)
+      out2 <- MetodoDerivadas(hr$HR2, 30)
+      out3 <- MetodoDerivadas(hr$MHR, 30)
       
-      df[out1, 1] <- NA
-      df[out2, 2] <- NA
-      df[out3, 3] <- NA 
+      hr[out1, 1] <- NA
+      hr[out2, 2] <- NA
+      hr[out3, 3] <- NA 
     }
-    
-    observeEvent(input$momento, {
-      lim_inf <- input$momento - 30
-      lim_sup <- input$momento + 30
-      df <- df %>% filter(x > lim_inf & x < lim_sup)
-    })
-    
-    # g1 <- plot_ly(data = df, x = ~ x, y = ~ HR1,
-    #               type = "scatter", mode = "lines", name = "HR1", 
-    #               line = list(color = 'red', width = 1.5)) %>%
-    #   
-    #   add_trace(y = ~ HR2, name = "HR2", type = "scatter", mode = "lines",
-    #             line = list(color = 'green', width = 1.5)) %>%
-    #   
-    #   add_trace(y = ~ MHR, name = "MHR", type = "scatter", mode = "lines",
-    #             line = list(color = 'blue', width = 1.5)) %>%
-    #   
-    #   layout(yaxis = list(title = "Latidos por minuto", gridcolor = "#ff8a8a"),
-    #          xaxis = list(title = "Tiempo (s)", gridcolor = "#ff8a8a")) %>%
-    #   
-    #   config(scrollZoom = TRUE)
-      
+
 
     TC <- as.data.frame(datosDig())
     TC <- TC %>% dplyr::select(TOCO)
@@ -181,46 +162,20 @@ server <- function(input, output, session) {
       TC[out, 1] <- NA 
     }
     
-    # g2 <- plot_ly(data = TC, type = "scatter", 
-    #               mode = "lines") %>% 
-    #   add_lines(x = ~ x, y = ~ TOCO,
-    #             line = list(color = "rgb(75, 0, 0)"), name = "TOCO") %>% 
-    #   config(scrollZoom = TRUE) %>% 
-    #   layout(yaxis = list(title = "Valor (mmHg)",
-    #                       gridcolor = "#ff8a8a"),
-    #          xaxis = list(title = "Tiempo (s)",
-    #                       gridcolor = "#ff8a8a"))
+    if (input$momento){
+      lim_inf <- input$momento - 50
+      lim_sup <- input$momento + 50
+      
+      hr <- hr %>% filter(x > lim_inf & x < lim_sup)
+      TC <- TC %>% filter(x > lim_inf & x < lim_sup)
+    }
     
-    # l <- list(font = list(family = "sans-serif", size = 12, color = "#000"), 
-    #           bgcolor = "#E2E2E2", bordercolor = "#FFFFFF", borderwidth = 2)
     
-    g <- subplot(G1(df), G2(TC), nrows = 2, titleY = TRUE, heights = c(0.6, 0.4)) %>%
-      layout(title = "Actividad uterina", autosize = TRUE)
+    
+    g <- subplot(G1(hr), G2(TC), nrows = 2, titleY = TRUE, heights = c(0.6, 0.4)) %>%
+      layout(autosize = TRUE)
     
     g
-  })
-  
-  # Creamos el gráfico del SPO2
-  output$SPO2 <- renderPlotly({
-    validate(
-      need(input$folder, message = "Esperando fichero digital")
-    )
-    
-    df <- as.data.frame(datosDig())
-    df <- df %>% dplyr::select(SPO2)
-    
-    seg <- nrow(df) / 4
-    df$x <- seq(0, seg, length.out = nrow(df))
-    
-    df <- df %>% filter(SPO2 > 0)
-    
-    g1 <- plot_ly(data = df, type = "scatter", mode = "lines") %>%
-      add_trace(x = ~ x, y = ~ SPO2, color = "green") %>%
-      layout(yaxis = list(title = "Porcentaje %"),
-             xaxis = list(title = "Tiempo (s)")) %>%
-      config(scrollZoom = TRUE)
-    
-    g1
   })
   
   cambioSPO2 <- reactive({
@@ -241,34 +196,6 @@ server <- function(input, output, session) {
     }
     
     return(posiciones_cambio)
-  })
-  
-  # Creamos el gráfico de las presiones
-  output$PRESION <- renderPlotly({
-    validate(
-      need(input$folder, message = "Esperando fichero digital")
-    )
-    
-    df <- as.data.frame(datosDig())
-    df <- df %>% dplyr::select(Pmedia, Pdiastolica, Psistolica)
-    
-    seg <- nrow(df) / 4000
-    df$x <- seq(0, seg, length.out = nrow(df))
-    
-    df_l <- df %>% 
-      pivot_longer(names_to = "Variable", values_to = "Valor", cols = !x)
-    
-    # ggplot(data = df_l ,aes(x = x, y = Valor, color = Variable)) +
-    #   geom_line() +
-    #   labs(x = "Tiempo (s)", y = "Valor mmHg")
-    
-    g1 <- plot_ly(data = df_l, type = "scatter", mode = "lines") %>% 
-      add_trace(x = ~ x, y = ~ Valor, color = ~ Variable) %>% 
-      config(scrollZoom = TRUE) %>% 
-      layout(yaxis = list(title = "Valor mmHg"),
-             xaxis = list(title = "Tiempo (s)"))
-    
-    g1
   })
 
   ###############  
@@ -340,24 +267,31 @@ server <- function(input, output, session) {
 }
 
 G1 <- function(df){
-  df <- pivot_longer(df, names_to = "Variable", values_to = "Valor", cols = !x)
-  g <- ggplot(df, aes(x = x, y = Valor, color = Variable)) + geom_line() +
+  # df <- pivot_longer(df, names_to = "Variable", values_to = "Valor", cols = !x)
+  g <- ggplot(df, aes(x = x, y = HR1)) + 
+    geom_line(color = "red") +
+    geom_line(data = df, aes(x, HR2), color = "green") +
+    geom_line(data = df, aes(x, MHR), color = "blue") +
     xlab("Tiempo (s)") + ylab("Latidos por minuto") +
-    theme(panel.grid.minor = element_line(color = "#005A47", size = 0.1, linetype = 1), 
-          panel.grid = element_line(color = "#005A47", size = 0.2, linetype = 1),
-          panel.background = element_rect(fill = 'white', color = '#005A47'))
+    scale_y_continuous(breaks = seq(60, 200, 20)) +
+    scale_x_continuous(breaks = seq(0, 5000, 40), labels = label_date()) +
+    theme(panel.grid.major.y = element_line(color = "#EE6363", size = 0.2, linetype = 1), 
+          panel.grid.major.x = element_line(color = "#EE6363", size = 0.2, linetype = 1),
+          panel.background = element_rect(fill = 'ivory')) + ylim(c(0, 200))
   
-  g1 <- ggplotly(g)
+  g1 <- ggplotly(g) 
   
   return(g1)
 }
 
 G2 <- function(TC){
-  g <- ggplot(TC, aes(x, TOCO)) + geom_line(color = "brown") + xlab("Tiempo (s)") + 
-    ylab("Valor (mmHg)") +
-    theme(panel.grid.minor = element_line(color = "#005A47", size = 0.1, linetype = 1), 
-          panel.grid = element_line(color = "#005A47", size = 0.2, linetype = 1),
-          panel.background = element_rect(fill = 'white', color = '#005A47'))
+  g <- ggplot(TC, aes(x, TOCO)) + geom_line(color = "brown") + 
+    xlab("Tiempo (s)") + ylab("Valor (mmHg)") +
+    scale_y_continuous(breaks = seq(0, 100, 20)) +
+    scale_x_continuous(breaks = seq(0, 5000, 40), labels = label_date()) +
+    theme(panel.grid.major.y = element_line(color = "#EE6363", size = 0.2, linetype = 1), 
+          panel.grid.major.x = element_line(color = "#EE6363", size = 0.2, linetype = 1),
+          panel.background = element_rect(fill = 'ivory')) + ylim(c(0, 100))
   
   g1 <- ggplotly(g)
   return(g1)
