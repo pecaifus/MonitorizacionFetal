@@ -6,28 +6,44 @@ library(zoo)
 library(shinythemes)
 library(plotly)
 
+options(spinner.color="#00B48E", spinner.color.background="#ffffff", spinner.size=1.5)
+
 ui <- fluidPage(
     theme = shinytheme("lumen"),
     
     fluidRow(
-      style = "background-color:#f89797;",
-      h1("Visualizador de monitorización fetal"),
-      hr(),
-      h3("Zona de menús"),
-      column(2, shinyDirButton('folder', 'Select a folder', 'Please select a folder', FALSE)), 
+      style = "background-color:#00B48E;",
+      tags$h1("Visualizador de monitorización fetal", align = "center")),
+    
+    fluidRow(
+      style = "background-color:#00B48E;",
+      h3("Zona de menús", align = "center"),
+      br(),
+      column(2, shinyDirButton('folder',
+                               'Seleccionar archivo',
+                               'Seleccione el registro que desea visualizar:', FALSE,
+                               style = "color: #005A47; background-color: #fff; border-color: #fff")),
+      
       column(2, checkboxInput("Eliminar", "Eliminar Outliers")),
       column(4, uiOutput("slide"), 
                 h6("Para volver a la vista general arrastra la barra hasta 0")),
       column(4, 
              actionButton("retroceder", "30 segundos", 
-                          icon = icon("chevron-left")),
+                          icon = icon("chevron-left"),
+                          style = "color: #005A47; background-color: #fff; border-color: #fff"),
              actionButton("avanzar", "30 segundos",
-                          icon = icon("chevron-right")))
-      ),
+                          icon = icon("chevron-right"),
+                          style = "color: #005A47; background-color: #fff; border-color: #fff"))
+    ),
     
     fluidRow(
-      h3("Gráfico sobre las frecuencias cardiacas y actividad uterina"),
-      plotlyOutput("HR"))
+      h3("Gráfico sobre las frecuencias cardiacas y actividad uterina",
+         align = "center"),
+      plotlyOutput("Graf"),
+      
+      plotOutput("G1p"),
+      plotOutput("G2p")
+    )
         
 )
 
@@ -60,8 +76,23 @@ server <- function(input, output, session) {
     ficheros <- list.files(dir_path)
     return(list(dir_path = dir_path, ficheros = ficheros))
   })
-
   
+  output$slide <- renderUI({
+    validate(
+      need(input$folder, message = "Esperando fichero digital")
+    )
+    
+    hr <- as.data.frame(datosDig())
+    hr <- hr %>% dplyr::select(HR1, HR2, MHR)
+    
+    cabecera <- cabeceraDigital()
+    inicio <- hms(paste(cabecera[4], cabecera[5], cabecera[6], collapse = ":"))
+    
+    seg <- nrow(hr) / 4
+    sliderInput("momento", "¿En qué momento temporal te quieres situar?",
+                0, seg, 0, animate = TRUE)
+  })
+
   # Cargamos los datos del fichero digital
   datosDig <- reactive({
     
@@ -93,50 +124,13 @@ server <- function(input, output, session) {
     return(data)
   })
   
-  
-  
-  # Cargamos los datos del fichero analógico
-  datosAna <- reactive({
-    
-    fichero <- directorio()$ficheros[3]
-    dir_path <- directorio()$dir_path
-    datapath <- paste(dir_path, fichero, sep = "/")
-    
-    filename <- file(
-      description = datapath,
-      open = "rb")
-    
-    data <- readBin(filename, integer(),
-                    n = file.info(datapath)$size,
-                    size = 2, signed = TRUE)
-    return(data)
-  })
-  
   ## CREACIÓN DE GRÁFICOS ##
-  output$slide <- renderUI({
-    hr <- as.data.frame(datosDig())
-    hr <- hr %>% dplyr::select(HR1, HR2, MHR)
-    
-    cabecera <- cabeceraDigital()
-    inicio <- hms(paste(cabecera[4], cabecera[5], cabecera[6], collapse = ":"))
-    
-    seg <- nrow(hr) / 4
-    sliderInput("momento", "¿En qué momento temporal te quieres situar?",
-                0, seg, 0)
-  })
   
-  # Creamos el gráfico de HR1, HR2 y MHR
-  output$HR <- renderPlotly({
-    validate(
-      need(input$folder, message = "Esperando fichero digital")
-    )
+  dataHR <- reactive({
     
     hr <- as.data.frame(datosDig())
     hr <- hr %>% dplyr::select(HR1, HR2, MHR)
     
-    cabecera <- cabeceraDigital()
-    inicio <- hms(paste(cabecera[4], cabecera[5], cabecera[6], collapse = ":"))
-
     seg <- nrow(hr) / 4
     hr$x <- seq(0, seg, length.out = nrow(hr))
     
@@ -149,10 +143,21 @@ server <- function(input, output, session) {
       hr[out2, 2] <- NA
       hr[out3, 3] <- NA 
     }
-
-
+    
+    if (input$momento){
+      lim_inf <- input$momento - 50
+      lim_sup <- input$momento + 50
+      
+      hr <- hr %>% filter(x > lim_inf & x < lim_sup)
+    }
+    
+    return(hr)
+  })
+  
+  dataTC <- reactive({
     TC <- as.data.frame(datosDig())
     TC <- TC %>% dplyr::select(TOCO)
+    
     seg <- nrow(TC) / 4
     TC$x <- seq(0, seg, length.out = nrow(TC))
     
@@ -165,14 +170,20 @@ server <- function(input, output, session) {
     if (input$momento){
       lim_inf <- input$momento - 50
       lim_sup <- input$momento + 50
-      
-      hr <- hr %>% filter(x > lim_inf & x < lim_sup)
+
       TC <- TC %>% filter(x > lim_inf & x < lim_sup)
     }
     
+    return(TC)
+  })
+  
+  # Creamos el gráfico de HR1, HR2 y MHR
+  output$Graf <- renderPlotly({
+    validate(
+      need(input$folder, message = "Esperando fichero digital")
+    )
     
-    
-    g <- subplot(G1(hr), G2(TC), nrows = 2, titleY = TRUE, heights = c(0.6, 0.4)) %>%
+    g <- subplot(G1(dataHR()), G2(dataTC()), nrows = 2, titleY = TRUE, heights = c(0.6, 0.4)) %>%
       layout(autosize = TRUE)
     
     g
@@ -201,6 +212,23 @@ server <- function(input, output, session) {
   ###############  
   ## CABECERAS ##
   ###############
+  
+  # Cargamos los datos del fichero analógico
+  datosAna <- reactive({
+    
+    fichero <- directorio()$ficheros[3]
+    dir_path <- directorio()$dir_path
+    datapath <- paste(dir_path, fichero, sep = "/")
+    
+    filename <- file(
+      description = datapath,
+      open = "rb")
+    
+    data <- readBin(filename, integer(),
+                    n = file.info(datapath)$size,
+                    size = 2, signed = TRUE)
+    return(data)
+  })
     
   # Cargamos la cabecera del fichero digital
   cabeceraDigital <- reactive({
@@ -267,31 +295,32 @@ server <- function(input, output, session) {
 }
 
 G1 <- function(df){
-  # df <- pivot_longer(df, names_to = "Variable", values_to = "Valor", cols = !x)
+  
   g <- ggplot(df, aes(x = x, y = HR1)) + 
     geom_line(color = "red") +
     geom_line(data = df, aes(x, HR2), color = "green") +
     geom_line(data = df, aes(x, MHR), color = "blue") +
-    xlab("Tiempo (s)") + ylab("Latidos por minuto") +
+    xlab("Tiempo (s)") + ylab("Latidos por minuto") + ylim(c(0, 200)) +
     scale_y_continuous(breaks = seq(60, 200, 20)) +
-    scale_x_continuous(breaks = seq(0, 5000, 40), labels = label_date()) +
+    scale_x_continuous(breaks = seq(0, 5000, 30)) +
     theme(panel.grid.major.y = element_line(color = "#EE6363", size = 0.2, linetype = 1), 
           panel.grid.major.x = element_line(color = "#EE6363", size = 0.2, linetype = 1),
-          panel.background = element_rect(fill = 'ivory')) + ylim(c(0, 200))
+          panel.background = element_rect(fill = 'ivory'))
   
-  g1 <- ggplotly(g) 
+  g1 <- ggplotly(g)
   
   return(g1)
 }
 
 G2 <- function(TC){
+  
   g <- ggplot(TC, aes(x, TOCO)) + geom_line(color = "brown") + 
-    xlab("Tiempo (s)") + ylab("Valor (mmHg)") +
+    xlab("Tiempo (s)") + ylab("Valor (mmHg)") + ylim(c(0, 100)) +
     scale_y_continuous(breaks = seq(0, 100, 20)) +
-    scale_x_continuous(breaks = seq(0, 5000, 40), labels = label_date()) +
+    scale_x_continuous(breaks = seq(0, 5000, 30)) +
     theme(panel.grid.major.y = element_line(color = "#EE6363", size = 0.2, linetype = 1), 
           panel.grid.major.x = element_line(color = "#EE6363", size = 0.2, linetype = 1),
-          panel.background = element_rect(fill = 'ivory')) + ylim(c(0, 100))
+          panel.background = element_rect(fill = 'ivory'))
   
   g1 <- ggplotly(g)
   return(g1)
