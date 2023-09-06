@@ -6,18 +6,27 @@ library(zoo)
 library(shinythemes)
 library(plotly)
 
-options(spinner.color="#00B48E", spinner.color.background="#ffffff", spinner.size=1.5)
 
 ui <- fluidPage(
     theme = shinytheme("lumen"),
+    tags$head(
+      tags$style(HTML("
+      .subrayado {
+        text-decoration: underline;
+      }"))),
+    
+    
+    fluidRow(
+      style = "background-color:#00B48E",
+      
+      tags$h2(tags$strong("Visualizador de monitorización fetal"), align = "center", 
+             style = "font-size: 45px; font-family: Verdana; color: #FFFFFF")),
     
     fluidRow(
       style = "background-color:#00B48E;",
-      tags$h1("Visualizador de monitorización fetal", align = "center")),
-    
-    fluidRow(
-      style = "background-color:#00B48E;",
-      h3("Zona de menús", align = "center"),
+      
+      tags$h3("Zona de menús", align = "left", class = "subrayado",
+              style = "font-size: 20px; font-family:Verdana; color: #F0FFFF; margin-left: 25px"),
       br(),
       column(2, shinyDirButton('folder',
                                'Seleccionar archivo',
@@ -26,7 +35,7 @@ ui <- fluidPage(
       
       column(2, checkboxInput("Eliminar", "Eliminar Outliers")),
       column(4, uiOutput("slide"), 
-                h6("Para volver a la vista general arrastra la barra hasta 0")),
+                tags$strong("Para volver a la vista general arrastra la barra hasta 0")),
       column(4, 
              actionButton("retroceder", "30 segundos", 
                           icon = icon("chevron-left"),
@@ -300,9 +309,11 @@ G1 <- function(df){
     geom_line(color = "red") +
     geom_line(data = df, aes(x, HR2), color = "green") +
     geom_line(data = df, aes(x, MHR), color = "blue") +
-    xlab("Tiempo (s)") + ylab("Latidos por minuto") + ylim(c(0, 200)) +
-    scale_y_continuous(breaks = seq(60, 200, 20)) +
+    xlab("Tiempo (s)") + ylab("Latidos por minuto") + ylim(c(60, 220)) +
+    scale_y_continuous(breaks = seq(60, 220, 20), limits = c(60, 200)) +
     scale_x_continuous(breaks = seq(0, 5000, 30)) +
+    geom_hline(yintercept = 120, color = "red", linetype = "solid", linewidth = 0.75) +
+    geom_hline(yintercept = 160, color = "red", linetype = "solid", linewidth = 0.75) +
     theme(panel.grid.major.y = element_line(color = "#EE6363", size = 0.2, linetype = 1), 
           panel.grid.major.x = element_line(color = "#EE6363", size = 0.2, linetype = 1),
           panel.background = element_rect(fill = 'ivory'))
