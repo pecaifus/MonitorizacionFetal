@@ -1,5 +1,6 @@
 library(shiny)
 library(shinydashboard)
+library(shinyalert)
 library(tidyverse)
 library(shinyFiles)
 library(scales)
@@ -8,19 +9,19 @@ library(shinythemes)
 library(plotly)
 
 
-ui <- dashboardPage(skin = "black",
-    
+ui_1 <- dashboardPage(skin = "black",
+
   dashboardHeader(
     title = "Visualizador"
   ),
-  
+
   dashboardSidebar(
-    
+
     tags$h3("Zona de menús", align = "left", class = "subrayado",
             style = "font-size: 20px; font-family:Verdana; color: #F0FFFF; margin-left: 25px"),
-    
+
     hr(),
-    
+
     sidebarMenu(
       tags$head(
         tags$style(
@@ -30,82 +31,76 @@ ui <- dashboardPage(skin = "black",
              )
           )
         ),
-      
+
       actionButton("guia", "Guía de uso de la app",
                    style = "color: #005A47; background-color: #fff; border-color: #fff"),
       br(),
-      
+
       shinyDirButton('folder',
                      'Seleccionar archivo',
                      'Seleccione el registro que desea visualizar:', FALSE,
                      style = "color: #005A47; background-color: #fff; border-color: #fff"),
       br(),
-      
+
       checkboxInput("Eliminar", "Eliminar Outliers"),
       br(),
-      
-      uiOutput("slide")
+
+      uiOutput("slide"),
+      tags$strong("Para volver a la vista general arrastra la barra hasta 0")
     )
   ),
   dashboardBody(
-    h3("Gráfico sobre las frecuencias cardiacas y actividad uterina",
+    h3("Gráfico sobre las frecuencias cardíacas y actividad uterina",
        align = "center"),
     plotlyOutput("Graf")
   )
 )
 
-# ui <- fluidPage(
-#   
-    # theme = shinytheme("lumen"),
-    # tags$head(
-    #   tags$style(HTML("
-    #   .subrayado {
-    #     text-decoration: underline;
-    #   }"))),
-#     
-#     
-#     fluidRow(
-#       style = "background-color:#00B48E",
-#       
-#       tags$h2(tags$strong("Visualizador de monitorización fetal"), align = "center", 
-#              style = "font-size: 45px; font-family: Verdana; color: #FFFFFF")),
-#     
-#     fluidRow(
-#       style = "background-color:#00B48E;",
-#       
-#       tags$h3("Zona de menús", align = "left", class = "subrayado",
-#               style = "font-size: 20px; font-family:Verdana; color: #F0FFFF; margin-left: 25px"),
-#       br(),
-#       column(2, actionButton("guia", "Guía de uso de la app",
-#                              style = "color: #005A47; background-color: #fff; border-color: #fff")),
-#       
-#       column(2, shinyDirButton('folder',
-#                                'Seleccionar archivo',
-#                                'Seleccione el registro que desea visualizar:', FALSE,
-#                                style = "color: #005A47; background-color: #fff; border-color: #fff")),
-#       
-#       column(2, checkboxInput("Eliminar", "Eliminar Outliers")),
-#       column(4, uiOutput("slide"), 
-#                 tags$strong("Para volver a la vista general arrastra la barra hasta 0")),
-#       column(4, 
-#              actionButton("retroceder", "30 segundos", 
-#                           icon = icon("chevron-left"),
-#                           style = "color: #005A47; background-color: #fff; border-color: #fff"),
-#              actionButton("avanzar", "30 segundos",
-#                           icon = icon("chevron-right"),
-#                           style = "color: #005A47; background-color: #fff; border-color: #fff"))
-#     ),
-#     
-#     fluidRow(
-#       h3("Gráfico sobre las frecuencias cardiacas y actividad uterina",
-#          align = "center"),
-#       plotlyOutput("Graf"),
-#       
-#       plotOutput("G1p"),
-#       plotOutput("G2p")
-#     )
-#         
-# )
+ui_2 <- fluidPage(
+
+theme = shinytheme("lumen"),
+tags$head(
+  tags$style(HTML("
+  .subrayado {
+    text-decoration: underline;
+  }"))),
+
+
+    fluidRow(
+      style = "background-color:#00B48E",
+
+      tags$h2(tags$strong("Visualizador de monitorización fetal"), align = "center",
+             style = "font-size: 45px; font-family: Verdana; color: #FFFFFF")),
+
+    fluidRow(
+      style = "background-color:#00B48E;",
+
+      tags$h3("Zona de menús", align = "left", class = "subrayado",
+              style = "font-size: 20px; font-family:Verdana; color: #F0FFFF; margin-left: 25px"),
+      br(),
+      column(2, actionButton("guia", "Guía de uso de la app",
+                             style = "color: #005A47; background-color: #fff; border-color: #fff")),
+
+      column(2, shinyDirButton('folder',
+                               'Seleccionar archivo',
+                               'Seleccione el registro que desea visualizar:', FALSE,
+                               style = "color: #005A47; background-color: #fff; border-color: #fff")),
+
+      column(2, checkboxInput("Eliminar", "Eliminar Outliers")),
+      column(4, uiOutput("slide"),
+                tags$strong("Para volver a la vista general arrastra la barra hasta 0"))
+    ),
+
+    fluidRow(
+      h3("Gráfico sobre las frecuencias cardíacas y actividad uterina",
+         align = "center"),
+      plotlyOutput("Graf"),
+
+      plotOutput("G1p"),
+      plotOutput("G2p")
+    )
+
+)
 
 server <- function(input, output, session) {
   
@@ -127,7 +122,21 @@ server <- function(input, output, session) {
   observeEvent(input$guia, {
     shinyalert(
       title = "Guía de uso de la aplicación",
-      text = "Texto de prueba de la aplicación",
+      text = HTML("<p>
+      <u> Esta es una aplicación en pruebas. Dispones de una serie de 
+      botones para configurar el gráfico a tu gusto. </u> </br> </br> 
+      
+      <strong> 1. </strong> Primero debes indicar el directorio en el que se encunetran
+      los archivos mediante el botón. </br> </br> 
+      
+      <strong> 2. </strong> También tienes un botón que al pulsarlo
+      se eliminan los ouliers </br></br>
+      
+      <strong> 3. </strong> Por último, tras cargar los archivo se
+      muestra una línea temporal con la que te puedes situar en un punto
+      concreto de la señal. Además, como se indica debajo, para volver a
+      la vista general debes arrastrar la barra al 0. </p>"),
+      html = T,
       showCancelButton = FALSE,
       showConfirmButton = TRUE
     )
@@ -398,4 +407,4 @@ G2 <- function(TC){
 }
 
 # Run the application 
-shinyApp(ui = ui, server = server)
+shinyApp(ui = ui_2, server = server)
