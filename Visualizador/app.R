@@ -32,6 +32,13 @@ ui_1 <- dashboardPage(skin = "black",
           )
         ),
 
+      strong("Leyenda del gráfico"),
+      HTML("<ul>
+              <li style=color:red;>HR1</li>
+              <li style=color:green;>HR2</li>
+              <li style=color:blue;>MHR</li>
+              <li style=color:brown;>TOCO</li>
+           </ul>"),
       actionButton("guia", "Guía de uso de la app",
                    style = "color: #005A47; background-color: #fff; border-color: #fff"),
       br(),
@@ -52,7 +59,8 @@ ui_1 <- dashboardPage(skin = "black",
   dashboardBody(
     h3("Gráfico sobre las frecuencias cardíacas y actividad uterina",
        align = "center"),
-    plotlyOutput("Graf")
+    plotlyOutput("Graf"),
+    dataTableOutput("tabla")
   )
 )
 
@@ -77,6 +85,15 @@ tags$head(
 
       tags$h3("Zona de menús", align = "left", class = "subrayado",
               style = "font-size: 20px; font-family:Verdana; color: #F0FFFF; margin-left: 25px"),
+      
+      strong("Leyenda del gráfico"),
+      HTML("<ul>
+              <li style=color:red;>HR1</li>
+              <li style=color:green;>HR2</li>
+              <li style=color:blue;>MHR</li>
+              <li style=color:brown;>TOCO</li>
+           </ul>"),
+      
       br(),
       column(2, actionButton("guia", "Guía de uso de la app",
                              style = "color: #005A47; background-color: #fff; border-color: #fff")),
@@ -95,9 +112,7 @@ tags$head(
       h3("Gráfico sobre las frecuencias cardíacas y actividad uterina",
          align = "center"),
       plotlyOutput("Graf"),
-
-      plotOutput("G1p"),
-      plotOutput("G2p")
+      dataTableOutput("tabla")
     )
 
 )
@@ -117,6 +132,11 @@ server <- function(input, output, session) {
     res <- diff(vector)
     out <- c(0, res)
     return(abs(out) > umbral)
+  }
+  
+  cambios <- function(vector){
+    res <- c(0, diff(vector))
+    return(res > 0)
   }
   
   observeEvent(input$guia, {
@@ -234,10 +254,18 @@ server <- function(input, output, session) {
   
   dataTC <- reactive({
     TC <- as.data.frame(datosDig())
-    TC <- TC %>% dplyr::select(TOCO)
+    TC <- TC %>% dplyr::select(TOCO, SPO2, VCP, Pmedia)
     
     seg <- nrow(TC) / 4
     TC$x <- seq(0, seg, length.out = nrow(TC))
+    
+    cambioSPO2 <- cambios(TC$SPO2)
+    cambioVCP <- cambios(TC$VCP)
+    cambioPM <- cambios(TC$Pmedia)
+    
+    TC[cambioSPO2, 2] <- 500
+    TC[cambioVCP, 3] <- 500
+    TC[cambioPM, 4] <- 500
     
     if (input$Eliminar){
       umbral <- 20
@@ -267,25 +295,26 @@ server <- function(input, output, session) {
     g
   })
   
-  cambioSPO2 <- reactive({
+  output$tabla <- renderDataTable({
     validate(
       need(input$folder, message = "Esperando fichero digital")
     )
     
-    SP <- as.data.frame(datosDig())
-    SP <- SP %>% dplyr::select(SPO2)
-    SP <- as.vector(SP[,1])
+    dat <- as.data.frame(datosDig())
+    seg <- nrow(dat) / 4
+    dat$x <- seq(0, seg, length.out = nrow(dat))
     
-    posiciones_cambio <- c()
+    cambioSPO2 <- cambios(dat$SPO2)
+    cambioVCP <- cambios(dat$VCP)
+    cambioPM <- cambios(dat$Pmedia)
     
-    for (i in 2:length(SP)) {
-      if (SP[i,] != SP[i - 1,]) {
-        posiciones_cambio <- c(posiciones_cambio, i)
-      }
-    }
+    c1 <- dat[cambioSPO2, 5]
+    c2 <- dat[cambioVCP, 6]
+    c3 <- dat[cambioPM, 9]
+    dat <- cbind(c1, c2, c3)
     
-    return(posiciones_cambio)
   })
+  
 
   ###############  
   ## CABECERAS ##
