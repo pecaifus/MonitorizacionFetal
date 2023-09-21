@@ -53,7 +53,12 @@ ui_1 <- dashboardPage(skin = "black",
       br(),
 
       uiOutput("slide"),
-      tags$strong("Para volver a la vista general arrastra la barra hasta 0")
+      tags$strong("Para volver a la vista general arrastra la barra hasta 0"),
+      br(),
+      
+      checkboxInput("VCP", "Ocultar cambios de VCP"),
+      checkboxInput("SPO2", "Ocultar cambios de SPO2"),
+      checkboxInput("Pmedia", "Ocultar cambios de Pmedia")
     )
   ),
   dashboardBody(
@@ -104,8 +109,14 @@ tags$head(
                                style = "color: #005A47; background-color: #fff; border-color: #fff")),
 
       column(2, checkboxInput("Eliminar", "Eliminar Outliers")),
+  
       column(4, uiOutput("slide"),
-                tags$strong("Para volver a la vista general arrastra la barra hasta 0"))
+                tags$strong("Para volver a la vista general arrastra la barra hasta 0")),
+      br(),
+      
+      checkboxInput("VCP", "Ocultar cambios de VCP"),
+      checkboxInput("SPO2", "Ocultar cambios de SPO2"),
+      checkboxInput("Pmedia", "Ocultar cambios de Pmedia")
     ),
 
     fluidRow(
@@ -262,10 +273,23 @@ server <- function(input, output, session) {
     cambioSPO2 <- cambios(TC$SPO2)
     cambioVCP <- cambios(TC$VCP)
     cambioPM <- cambios(TC$Pmedia)
+
+    TC[!cambioSPO2, 2] <- NA
+    TC[!cambioVCP, 3] <- NA
+    TC[!cambioPM, 4] <- NA
     
-    TC[cambioSPO2, 2] <- 500
-    TC[cambioVCP, 3] <- 500
-    TC[cambioPM, 4] <- 500
+    if (input$SPO2){
+      TC[cambioSPO2, 2] <- NA
+    }
+    
+    if (input$VCP){
+      TC[cambioVCP, 3] <- NA
+    }
+    
+    if (input$Pmedia){
+      TC[cambioPM, 4] <- NA
+    }
+    
     
     if (input$Eliminar){
       umbral <- 20
@@ -293,26 +317,6 @@ server <- function(input, output, session) {
       layout(autosize = TRUE)
     
     g
-  })
-  
-  output$tabla <- renderDataTable({
-    validate(
-      need(input$folder, message = "Esperando fichero digital")
-    )
-    
-    dat <- as.data.frame(datosDig())
-    seg <- nrow(dat) / 4
-    dat$x <- seq(0, seg, length.out = nrow(dat))
-    
-    cambioSPO2 <- cambios(dat$SPO2)
-    cambioVCP <- cambios(dat$VCP)
-    cambioPM <- cambios(dat$Pmedia)
-    
-    c1 <- dat[cambioSPO2, 5]
-    c2 <- dat[cambioVCP, 6]
-    c3 <- dat[cambioPM, 9]
-    dat <- cbind(c1, c2, c3)
-    
   })
   
 
@@ -424,6 +428,9 @@ G1 <- function(df){
 G2 <- function(TC){
   
   g <- ggplot(TC, aes(x, TOCO)) + geom_line(color = "brown") + 
+    geom_text(data = TC, aes(x = x, y = VCP, label = paste("VCP:", VCP))) + 
+    geom_text(data = TC, aes(x = x, y = SPO2, label = paste("SPO2:", SPO2))) +
+    geom_text(data = TC, aes(x = x, y = Pmedia, label = paste("Pmed:", Pmedia))) +
     xlab("Tiempo (s)") + ylab("Valor (mmHg)") + ylim(c(0, 100)) +
     scale_y_continuous(breaks = seq(0, 100, 20)) +
     scale_x_continuous(breaks = seq(0, 5000, 30)) +
