@@ -32,13 +32,6 @@ ui_1 <- dashboardPage(skin = "black",
           )
         ),
 
-      strong("Leyenda del gráfico"),
-      HTML("<ul>
-              <li style=color:red;>HR1</li>
-              <li style=color:green;>HR2</li>
-              <li style=color:blue;>MHR</li>
-              <li style=color:brown;>TOCO</li>
-           </ul>"),
       actionButton("guia", "Guía de uso de la app",
                    style = "color: #005A47; background-color: #fff; border-color: #fff"),
       br(),
@@ -54,6 +47,15 @@ ui_1 <- dashboardPage(skin = "black",
 
       uiOutput("slide"),
       tags$strong("Para volver a la vista general arrastra la barra hasta 0"),
+      br(),
+      
+      strong("Leyenda del gráfico"),
+      HTML("<ul>
+              <li style=color:red;>HR1</li>
+              <li style=color:green;>HR2</li>
+              <li style=color:blue;>MHR</li>
+              <li style=color:brown;>TOCO</li>
+           </ul>"),
       br(),
       
       checkboxInput("VCP", "Ocultar cambios de VCP"),
@@ -91,19 +93,12 @@ tags$head(
       tags$h3("Zona de menús", align = "left", class = "subrayado",
               style = "font-size: 20px; font-family:Verdana; color: #F0FFFF; margin-left: 25px"),
       
-      strong("Leyenda del gráfico"),
-      HTML("<ul>
-              <li style=color:red;>HR1</li>
-              <li style=color:green;>HR2</li>
-              <li style=color:blue;>MHR</li>
-              <li style=color:brown;>TOCO</li>
-           </ul>"),
       
       br(),
-      column(2, actionButton("guia", "Guía de uso de la app",
+      column(3, actionButton("guia", "Guía de uso de la app",
                              style = "color: #005A47; background-color: #fff; border-color: #fff")),
 
-      column(2, shinyDirButton('folder',
+      column(3, shinyDirButton('folder',
                                'Seleccionar archivo',
                                'Seleccione el registro que desea visualizar:', FALSE,
                                style = "color: #005A47; background-color: #fff; border-color: #fff")),
@@ -111,12 +106,22 @@ tags$head(
       column(2, checkboxInput("Eliminar", "Eliminar Outliers")),
   
       column(4, uiOutput("slide"),
-                tags$strong("Para volver a la vista general arrastra la barra hasta 0")),
-      br(),
+                tags$strong("Para volver a la vista general arrastra la barra hasta 0"))
+    ),
+
+    fluidRow(
+      style = "background-color:#00B48E",
+      column(3, strong("Leyenda del gráfico"),
+             HTML("<ul>
+              <li style=color:red;>HR1</li>
+              <li style=color:green;>HR2</li>
+              <li style=color:blue;>MHR</li>
+              <li style=color:brown;>TOCO</li>
+           </ul>")),
       
-      checkboxInput("VCP", "Ocultar cambios de VCP"),
-      checkboxInput("SPO2", "Ocultar cambios de SPO2"),
-      checkboxInput("Pmedia", "Ocultar cambios de Pmedia")
+      column(3, checkboxInput("VCP", "Ocultar cambios de VCP"),
+             checkboxInput("SPO2", "Ocultar cambios de SPO2"),
+             checkboxInput("Pmedia", "Ocultar cambios de Pmedia"))
     ),
 
     fluidRow(
@@ -163,10 +168,19 @@ server <- function(input, output, session) {
       <strong> 2. </strong> También tienes un botón que al pulsarlo
       se eliminan los ouliers </br></br>
       
-      <strong> 3. </strong> Por último, tras cargar los archivo se
+      <strong> 3. </strong> En tercer lugar, tras cargar los archivo se
       muestra una línea temporal con la que te puedes situar en un punto
       concreto de la señal. Además, como se indica debajo, para volver a
-      la vista general debes arrastrar la barra al 0. </p>"),
+      la vista general debes arrastrar la barra al 0. </br></br>
+      
+      <strong> 4. </strong> A continuación, se indica una leyenda del gráfico
+      mediante tres colores que indican las señales que se representan. 
+      </br></br>
+                  
+      <strong> 5. </strong> Por último, tienes tres marcadores con los que
+      puedes ocultar los cambios de cada una de las señales indicadas en
+      el gráfico para manejar el gráfico a tu antojo. 
+                  </p>"),
       html = T,
       showCancelButton = FALSE,
       showConfirmButton = TRUE
@@ -432,7 +446,7 @@ G2 <- function(TC){
     geom_text(data = TC, aes(x = x, y = SPO2, label = paste("SPO2:", SPO2))) +
     geom_text(data = TC, aes(x = x, y = Pmedia, label = paste("Pmed:", Pmedia))) +
     xlab("Tiempo (s)") + ylab("Valor (mmHg)") + ylim(c(0, 100)) +
-    scale_y_continuous(breaks = seq(0, 100, 20)) +
+    scale_y_continuous(breaks = seq(0, 120, 20)) +
     scale_x_continuous(breaks = seq(0, 5000, 30)) +
     theme(panel.grid.major.y = element_line(color = "#EE6363", size = 0.2, linetype = 1), 
           panel.grid.major.x = element_line(color = "#EE6363", size = 0.2, linetype = 1),
