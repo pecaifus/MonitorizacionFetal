@@ -252,10 +252,18 @@ server <- function(input, output, session) {
   dataHR <- reactive({
     
     hr <- as.data.frame(datosDig())
-    hr <- hr %>% dplyr::select(HR1, HR2, MHR)
+    hr <- hr %>% dplyr::select(HR1, HR2, MHR, VCP)
     
     seg <- nrow(hr) / 4
     hr$x <- seq(0, seg, length.out = nrow(hr))
+    
+    cambioVCP <- cambios(hr$VCP)
+    
+    hr[!cambioVCP, 4] <- NA
+    
+    if (input$VCP){
+      hr[cambioVCP, 4] <- NA
+    }
     
     if (input$Eliminar){
       out1 <- MetodoDesviaciones(hr$HR1)
@@ -279,7 +287,7 @@ server <- function(input, output, session) {
   
   dataTC <- reactive({
     TC <- as.data.frame(datosDig())
-    TC <- TC %>% dplyr::select(TOCO, SPO2, VCP, Pmedia)
+    TC <- TC %>% dplyr::select(TOCO, SPO2, Pmedia)
     
     seg <- nrow(TC) / 4
     TC$x <- seq(0, seg, length.out = nrow(TC))
@@ -289,19 +297,14 @@ server <- function(input, output, session) {
     cambioPM <- cambios(TC$Pmedia)
 
     TC[!cambioSPO2, 2] <- NA
-    TC[!cambioVCP, 3] <- NA
-    TC[!cambioPM, 4] <- NA
+    TC[!cambioPM, 3] <- NA
     
     if (input$SPO2){
       TC[cambioSPO2, 2] <- NA
     }
     
-    if (input$VCP){
-      TC[cambioVCP, 3] <- NA
-    }
-    
     if (input$Pmedia){
-      TC[cambioPM, 4] <- NA
+      TC[cambioPM, 3] <- NA
     }
     
     
@@ -425,6 +428,7 @@ G1 <- function(df){
     geom_line(color = "red") +
     geom_line(data = df, aes(x, HR2), color = "green") +
     geom_line(data = df, aes(x, MHR), color = "blue") +
+    geom_text(data = df, aes(x = x, y = VCP + 60, label = paste("VCP:", VCP))) +
     xlab("Tiempo (s)") + ylab("Latidos por minuto") + ylim(c(60, 220)) +
     scale_y_continuous(breaks = seq(60, 220, 20), limits = c(60, 200)) +
     scale_x_continuous(breaks = seq(0, 5000, 30)) +
@@ -441,8 +445,7 @@ G1 <- function(df){
 
 G2 <- function(TC){
   
-  g <- ggplot(TC, aes(x, TOCO)) + geom_line(color = "brown") + 
-    geom_text(data = TC, aes(x = x, y = VCP, label = paste("VCP:", VCP))) + 
+  g <- ggplot(TC, aes(x, TOCO)) + geom_line(color = "brown") +  
     geom_text(data = TC, aes(x = x, y = SPO2, label = paste("SPO2:", SPO2))) +
     geom_text(data = TC, aes(x = x, y = Pmedia, label = paste("Pmed:", Pmedia))) +
     xlab("Tiempo (s)") + ylab("Valor (mmHg)") + ylim(c(0, 100)) +
@@ -457,4 +460,4 @@ G2 <- function(TC){
 }
 
 # Run the application 
-shinyApp(ui = ui_2, server = server)
+shinyApp(ui = ui_1, server = server)
